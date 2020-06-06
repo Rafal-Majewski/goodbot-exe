@@ -1,0 +1,120 @@
+const auth=require("./auth.json");
+global.Discord=require("discord.js");
+global.latinize=require("latinize");
+const client=new Discord.Client({partials: ["MESSAGE", "CHANNEL", "REACTION"]});
+global.languageManager=require("./lang.js");
+global.fs=require("fs");
+global.servers=fs.readdirSync("./servers").reduce((sum, value)=>{
+	let server=require(`./servers/${value}`);
+	sum[server.id]=server;
+	return sum;
+}, {});
+const commands=fs.readdirSync("./commands").reduce((sum, value)=>{
+	let command=require(`./commands/${value}`);
+	command.triggers=command.triggers.map((trigger)=>(trigger.map((word)=>(latinize(word.toLowerCase())))));
+	sum[value.slice(0, -3)]=command;
+	return sum;
+}, {});
+const actions=fs.readdirSync("./actions").reduce((sum, value)=>{
+	sum[value.slice(0, -3)]=require(`./actions/${value}`);
+	return sum;
+}, {});
+
+client.on("ready", ()=>{
+	Object.values(servers).forEach((server)=>{
+		server.guild=client.guilds.cache.get(server.id);
+		server.onStart && server.onStart(server.guild);
+	});
+});
+
+const callAction=(message)=>{
+	let server=servers[(message.guild && message.guild.id) || "direct"];
+	for (let actionId of server.actions) {
+		let action=actions[actionId];
+		if (action.isOnlyForHumans && message.author.bot) continue;
+		let data={
+			server: server,
+			member: message.member,
+			guild: message.guild,
+			channel: message.channel,
+			user: message.author,
+			userId: message.author.id,
+			message: message,
+		};
+		action.trigger(data) && action.func(data);
+	}
+};
+
+const callCommand=(message)=>{
+	if (message.author.bot) return;
+	let server=servers[(message.guild && message.guild.id) || "direct"];
+	let content=message.content;
+	if (server.commandPrefix) {
+		if (content.startsWith(server.commandPrefix)) content=content.substr(server.commandPrefix.length);
+		else return;
+	}
+	content=content.replace(/\s\s+/g, " ");
+	let splittedContent=content.split(" ");
+	let validCommand=null;
+	let validCommandTriggerLongestLength = 0;
+	for (let commandId of server.commands) {
+		for (let commandTrigger of commands[commandId].triggers) {
+			if (commandTrigger.length > splittedContent.length) continue;
+			let valid=true;
+			for (let i=0; i<commandTrigger.length; ++i) {
+				if (commandTrigger[i] != latinize(splittedContent[i]).toLowerCase()) {
+					valid=false;
+					break;
+				} else valid=true;
+			}
+			if (valid) {
+				if (!validCommand || commandTrigger.length > validCommandTriggerLongestLength) {
+					validCommandTriggerLongestLength=commandTrigger.length;
+					validCommand=commands[commandId];
+				}
+			}
+		}
+	}
+	let parameters=splittedContent.slice(validCommandTriggerLongestLength);
+	let data={
+		server: server,
+		guild: message.guild,
+		userId: message.author.id,
+		member: message.member,
+		message: message,
+		user: message.author,
+		channel: message.channel,
+		parameters: parameters
+	};
+	if (validCommand) validCommand.func(data);
+	else if (server.commandPrefix) message.reply(languageManager(data).get("commandNotFound"));
+};
+
+client.on("message", (message)=>{
+	let server=servers[(message.guild && message.guild.id) || "direct"];
+	if (server) {
+		if (server.actions) callAction(message);
+		if (server.commands) callCommand(message);
+		server.onMessage && server.onMessage(message);
+	} else {
+		console.log("There is no config for that server.");
+	}
+});
+
+client.on("messageReactionAdd", async(reaction, user)=>{
+	let server=servers[reaction.message.guild.id];
+	if (server) {
+		if (reaction.partial) {
+			try {
+				await reaction.fetch();
+			} catch (error) {
+				console.error(error);
+			}
+		}
+		server.onMessageReactionAdd && server.onMessageReactionAdd(reaction, user);
+	} else {
+		console.log("There is no config for that server.\n");
+	}
+});
+
+client.login(auth.token);

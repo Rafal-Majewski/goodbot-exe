@@ -1,0 +1,19 @@
+{
+  "name": "goodbot-exe",
+  "version": "1.0.0",
+  "description": "cool discord bot",
+  "main": "main.js",
+  "scripts": {
+    "start": "node main.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://git.gacko.pl/rafal/goodbot-exe.git"
+  },
+  "author": "Rafał Majewski",
+  "license": "Unlicense",
+  "dependencies": {
+    "discord.js": "^12.2.0",
+    "latinize": "^0.4.1"
+  }
+}
