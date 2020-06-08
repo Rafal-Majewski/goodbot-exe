@@ -4,6 +4,8 @@ global.latinize=require("latinize");
 const client=new Discord.Client({partials: ["MESSAGE", "CHANNEL", "REACTION"]});
 global.languageManager=require("./lang.js");
 global.fs=require("fs");
+global.MemberDb=require("./models/member.js");
+global.mongoose=require("./mongoose.js");
 global.servers=fs.readdirSync("./servers").reduce((sum, value)=>{
 	let server=require(`./servers/${value}`);
 	sum[server.id]=server;
@@ -117,4 +119,20 @@ client.on("messageReactionAdd", async(reaction, user)=>{
 	}
 });
 
-client.login(auth.token);
+client.on("messageReactionRemove", async(reaction, user)=>{
+	let server=servers[reaction.message.guild.id];
+	if (server) {
+		if (reaction.partial) {
+			try {
+				await reaction.fetch();
+			} catch (error) {
+				console.error(error);
+			}
+		}
+		server.onMessageReactionRemove && server.onMessageReactionRemove(reaction, user);
+	} else {
+		console.log("There is no config for that server.\n");
+	}
+});
+
+client.login(auth.discord.token);
