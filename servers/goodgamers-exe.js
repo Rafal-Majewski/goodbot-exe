@@ -1,3 +1,4 @@
+const syncRolesInterval=40000;
 const verificationMessageId="718821550190493726";
 const rolesChannelId="596825995642929181";
 const lobbyChannelId="154685954953707521";
@@ -35,12 +36,13 @@ const getMemberDoc=(member)=>{
 
 const takeRoleFromMember=(member, role)=>{
 	if (member) {
-		getMemberDoc(member).then((memberDoc)=>{
-			memberDoc.rolesIds=memberDoc.rolesIds.filter((roleId)=>(roleId != role.id));
-			memberDoc.save();
-		}).catch((error)=>{console.error(error);});
-		member.roles.remove(role).then(async()=>{
+
+		member.roles.remove(role).then(()=>{
 			console.log(role.name);
+			getMemberDoc(member).then((memberDoc)=>{
+				memberDoc.rolesIds=memberDoc.rolesIds.filter((roleId)=>(roleId != role.id));
+				memberDoc.save();
+			}).catch((error)=>{console.error(error);});
 			console.log(`GoodGamers.exe: User ${member.user.username} lost ${role.name}.`);
 		}).catch((error)=>{console.error(error);});
 	}
@@ -48,15 +50,39 @@ const takeRoleFromMember=(member, role)=>{
 
 const giveRoleToMember=(member, role)=>{
 	if (member) {
-		getMemberDoc(member).then((memberDoc)=>{
-			memberDoc.rolesIds=[...new Set([...memberDoc.rolesIds, role.id])];
-			memberDoc.save();
-		}).catch((error)=>{console.error(error);});
-
 		member.roles.add(role).then(()=>{
-			console.log(`GoodGamers.exe: User ${member.user.username} got ${role.name || role}.`);
+			getMemberDoc(member).then((memberDoc)=>{
+				memberDoc.rolesIds=[...new Set([...memberDoc.rolesIds, role.id])];
+				memberDoc.save();
+			}).catch((error)=>{console.error(error);});
+			console.log(`GoodGamers.exe: User ${member.user.username} got ${role.name}.`);
 		}).catch((error)=>{console.error(error);});
 	}
+};
+
+const syncRoles=()=>{
+	MemberDb.find().then((memberDocs)=>{
+		memberDocs.forEach((memberDoc)=>{
+			members.fetch(memberDoc._id).then((member)=>{
+				let memberRoles=member.roles.cache.array().map((role)=>(role.id));
+				let memberDbRoles=memberDoc.rolesIds;
+				let toRemove=memberRoles.filter((roleId)=>(!memberDbRoles.includes(roleId)));
+				let toAdd=memberDbRoles.filter((roleId)=>(!memberRoles.includes(roleId)));
+				toRemove.forEach((roleId)=>{
+					member.roles.remove(roleId).then(async()=>{
+						console.log(`GoodGamers.exe: User ${member.user.username} lost ${await roles.cache.get(roleId).name}.`);
+					});
+				});
+				toAdd.forEach((roleId)=>{
+					member.roles.add(roleId).then(async()=>{
+						console.log(`GoodGamers.exe: User ${member.user.username} got ${await roles.cache.get(roleId).name}.`);
+					});
+				});
+			}).catch((error)=>{
+				console.error(`GoodGamers.exe: Member ${memberDoc._id} not found.`);
+			});
+		});
+	});
 };
 
 module.exports={
@@ -70,6 +96,8 @@ module.exports={
 		userRole=await roles.fetch(userRoleId);
 		lobbyChannel=guild.channels.cache.get(lobbyChannelId);
 		rolesChannel=guild.channels.cache.get(rolesChannelId);
+		//syncRoles();
+		setInterval(syncRoles, syncRolesInterval);
 		// let i=0;
 		// (await members.fetch()).forEach(async(member)=>{
 		// 	let memberDb=new MemberDb({_id: member.id, rolesIds: member.roles.cache.array().map((role)=>(role.id))});
