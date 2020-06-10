@@ -40,8 +40,8 @@ const takeRoleFromMember=(member, role)=>{
 			memberDoc.save();
 		}).catch((error)=>{console.error(error);});
 		member.roles.remove(role).then(async()=>{
-			
-			console.log(`GoodGamers.exe: User ${member.user.username} lost ${role.name || role}.`);
+			console.log(role.name);
+			console.log(`GoodGamers.exe: User ${member.user.username} lost ${role.name}.`);
 		}).catch((error)=>{console.error(error);});
 	}
 };
@@ -94,7 +94,7 @@ module.exports={
 			let oldRoleName=reaction.message.content.split(" ").slice(1).join(" ");
 			let oldRole=(await roles.fetch()).cache.find((role)=>(role.name == oldRoleName));
 			if (oldRole) takeRoleFromMember(await members.fetch(user.id), oldRole);
-			else console.error(`GoodBot.exe: Role with name ${newRoleName} was not found.`);
+			else console.error(`GoodBot.exe: Role with name ${oldRoleName} was not found.`);
 		}
 	},
 	onMessageReactionAdd: async(reaction, user)=>{
