@@ -25,9 +25,35 @@ const actions=fs.readdirSync("./actions").reduce((sum, value)=>{
 client.on("ready", ()=>{
 	Object.values(servers).forEach((server)=>{
 		server.guild=client.guilds.cache.get(server.id);
-		server.onStart && server.onStart(server.guild);
+		server.onReady && server.onReady(server.guild);
 	});
 });
+
+// takeRoleFromMember: (member, role)=>{
+// 	if (member) {
+// 		console.log(member.user.username, role.name);
+// 		member.roles.remove(role).then(()=>{
+// 			getMemberDoc(member).then((memberDoc)=>{
+// 				console.log(memberDoc);
+// 				memberDoc.rolesIds=memberDoc.rolesIds.filter((roleId)=>(roleId != role.id));
+// 				memberDoc.save();
+// 			}).catch((error)=>{console.error(error);});
+// 			console.log(`GoodGamers.exe: User ${member.user.username} lost ${role.name}.`);
+// 		}).catch((error)=>{console.error(error);});
+// 	}
+// },
+// giveRoleToMember: (member, role)=>{
+// 	if (member) {
+// 		console.log(member.user.username, role.name);
+// 		member.roles.add(role).then(()=>{
+// 			getMemberDoc(member).then((memberDoc)=>{
+// 				memberDoc.rolesIds=[...new Set([...memberDoc.rolesIds, role.id])];
+// 				memberDoc.save();
+// 			}).catch((error)=>{console.error(error);});
+// 			console.log(`GoodGamers.exe: User ${member.user.username} got ${role.name}.`);
+// 		}).catch((error)=>{console.error(error);});
+// 	}
+// },
 
 const callAction=(message)=>{
 	let server=servers[(message.guild && message.guild.id) || "direct"];
@@ -103,6 +129,24 @@ client.on("message", (message)=>{
 	}
 });
 
+client.on("guildMemberRemove", (member)=>{
+	let server=servers[(member.guild && member.guild.id) || "direct"];
+	if (server) {
+		server.onGuildMemberRemove && server.onGuildMemberRemove(member);
+	} else {
+		console.log("There is no config for that server.");
+	}
+});
+
+client.on("guildMemberAdd", (member)=>{
+	let server=servers[(member.guild && member.guild.id) || "direct"];
+	if (server) {
+		server.onGuildMemberAdd && server.onGuildMemberAdd(member);
+	} else {
+		console.log("There is no config for that server.");
+	}
+});
+
 client.on("messageReactionAdd", async(reaction, user)=>{
 	let server=servers[reaction.message.guild.id];
 	if (server) {
@@ -114,6 +158,20 @@ client.on("messageReactionAdd", async(reaction, user)=>{
 			}
 		}
 		server.onMessageReactionAdd && server.onMessageReactionAdd(reaction, user);
+	} else {
+		console.log("There is no config for that server.\n");
+	}
+});
+
+client.on("guildMemberUpdate", async(oldMember, newMember)=>{
+	let oldRoles=oldMember.roles.cache.array();
+	let newRoles=newMember.roles.cache.array();
+	let toRemove=oldRoles.filter((role)=>(!newRoles.includes(role)))[0];
+	let toAdd=newRoles.filter((role)=>(!oldRoles.includes(role)))[0];
+	let server=servers[newMember.guild.id];
+	if (server) {
+		if (toAdd) server.onGuildMemberRoleAdd && server.onGuildMemberRoleAdd(newMember, toAdd);
+		if (toRemove) server.onGuildMemberRoleRemove && server.onGuildMemberRoleRemove(newMember, toRemove);
 	} else {
 		console.log("There is no config for that server.\n");
 	}

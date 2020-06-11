@@ -1,6 +1,6 @@
 module.exports={
 	id: "direct",
-	onStart: ()=>{
+	onReady: ()=>{
 		console.log("Direct: Ready.");
 	},
 };
