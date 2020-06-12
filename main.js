@@ -6,6 +6,12 @@ global.languageManager=require("./lang.js");
 global.fs=require("fs");
 global.MemberDb=require("./models/member.js");
 global.mongoose=require("./mongoose.js");
+global.getMemberDoc=(member)=>{
+	return MemberDb.findOne({"_id": member.id}).then(async(memberDoc)=>{
+		if (!memberDoc) memberDoc=await (new MemberDb({"_id": member.id, "rolesIds": member.roles.cache.array().map((role)=>(role.id))})).save();
+		return memberDoc;
+	}).catch((error)=>{throw error;});
+};
 global.servers=fs.readdirSync("./servers").reduce((sum, value)=>{
 	let server=require(`./servers/${value}`);
 	sum[server.id]=server;

@@ -3,6 +3,7 @@ const Schema=mongoose.Schema;
 
 const memberDbSchema=new Schema({
 	_id: {type: String},
+	annoying: {type: Number},
 	rolesIds: {type: Array, of: {type: String, unique: true}},
 });
 
