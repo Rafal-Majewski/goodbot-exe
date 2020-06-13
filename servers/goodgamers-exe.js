@@ -1,6 +1,6 @@
 const syncWithDatabaseInterval=60000;
 const emergencyInterval=60000;
-const rainbowInterval=200;
+const rainbowInterval=2000;
 const rainbowDuration=12;
 const rolesInfo=[
 	{
@@ -262,10 +262,11 @@ module.exports={
 		// 	++i;
 		// });
 
-		setInterval(()=>{
-			let color=getRainbowColor(Date.now()/1000%rainbowDuration/rainbowDuration);
-			this.ownerRole.setColor([color.r, color.g, color.b]);
-		}, rainbowInterval);
+		// setInterval(()=>{
+		// 	let color=getRainbowColor(Date.now()/1000%rainbowDuration/rainbowDuration);
+		// 	console.log("elo");
+		// 	this.ownerRole.setColor([color.r, color.g, color.b]);
+		// }, rainbowInterval);
 		console.log("GoodGamers.exe: Ready.");
 		this.syncWithDatabase();
 		setInterval(()=>{this.syncWithDatabase();}, syncWithDatabaseInterval);
