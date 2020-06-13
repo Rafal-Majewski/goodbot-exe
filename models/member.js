@@ -5,6 +5,7 @@ const memberDbSchema=new Schema({
 	_id: {type: String},
 	annoying: {type: Number},
 	rolesIds: {type: Array, of: {type: String, unique: true}},
+	isBot: {type: Boolean},
 });
 
 memberDbSchema.virtual("id").get(function() {

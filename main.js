@@ -6,9 +6,47 @@ global.languageManager=require("./lang.js");
 global.fs=require("fs");
 global.MemberDb=require("./models/member.js");
 global.mongoose=require("./mongoose.js");
+global.getRainbowColor=(number)=>{
+	number*=6;
+	let r=0;
+	let g=0;
+	let b=0;
+	if (number <= 1) {
+		r=1;
+		g=number;
+	}
+	else if (number <= 2) {
+		r=1-(number-1);
+		g=1;
+	}
+	else if(number <= 3) {
+		g=1;
+		b=(number-2);
+	}
+	else if (number <= 4) {
+		g=1-(number-3);
+		b=1;
+	}
+	else if (number <= 5) {
+		r=(number-4);
+		b=1;
+	}
+	else if( number <= 6) {
+		r=1;
+		b=1-(number-5);
+	}
+	return {r: 255*r, g: 255*g, b: 255*b};
+};
+
 global.getMemberDoc=(member)=>{
 	return MemberDb.findOne({"_id": member.id}).then(async(memberDoc)=>{
-		if (!memberDoc) memberDoc=await (new MemberDb({"_id": member.id, "rolesIds": member.roles.cache.array().map((role)=>(role.id))})).save();
+		if (!memberDoc) memberDoc=await (new MemberDb({"_id": member.id, "isBot": member.user.bot, "rolesIds": member.roles.cache.array().map((role)=>(role.id))})).save();
+		return memberDoc;
+	}).catch((error)=>{throw error;});
+};
+global.getUserDoc=(user)=>{
+	return MemberDb.findOne({"_id": user.id}).then(async(memberDoc)=>{
+		if (!memberDoc) memberDoc=await (new MemberDb({"_id": user.id, "isBot": user.bot, "rolesIds": []})).save();
 		return memberDoc;
 	}).catch((error)=>{throw error;});
 };
