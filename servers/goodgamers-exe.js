@@ -2,6 +2,62 @@ const syncWithDatabaseInterval=60000;
 const emergencyInterval=60000;
 const rainbowInterval=2000;
 const rainbowDuration=12;
+const categoriesInfo=[
+	{
+		id: "484824510902697995", // Welcome
+		autoPermissions: false,
+	},
+	{
+		id: "485094880557793301", // Server
+		autoPermissions: false,
+	},
+].reduce((sum, value)=>{
+	sum[value.id]=value;
+	if (value.autoPermissions == undefined) value.autoPermissions=true;
+	return sum;
+}, {});
+const channelsInfo=[
+	{
+		id: "540917696729055252", // new_users
+		sync: false,
+	},
+	{
+		id: "596825995642929181", // roles
+		sync: false,
+	},
+	{
+		id: "533639109600608266", // information
+		sync: false, 
+	},
+	{
+		id: "595746118806274070", // verification
+		sync: false, 
+	},
+	{
+		id: "706491691326242836", // our_servers
+		sync: false, 
+	},
+	{
+		id: "486156048668033044", // taking a nap
+		sync: false, 
+	},
+	{
+		id: "531175582893998081", // information (English)
+		sync: false, 
+	},
+	{
+		id: "196337857537769482", // informacje (Polski)
+		sync: false, 
+	},
+	{
+		id: "260085375190433792", // złote_myśli
+		sync: false, 
+	},
+].reduce((sum, value)=>{
+	sum[value.id]=value;
+	if (value.sync == undefined) value.sync=true;
+	return sum;
+}, {});
 const rolesInfo=[
 	{
 		id: "414863303635107851", // Creator
@@ -154,7 +210,7 @@ const byeTexts=[
 
 module.exports={
 	id: "154685954953707521",
-	commands: ["ping", "punish", "derank", "uprank"],
+	commands: ["ping", "punish", "derank", "uprank", "pardon"],
 	actions: ["hitler"],
 	commandPrefix: "/",
 	getByeText: function(member) {
@@ -187,16 +243,18 @@ module.exports={
 			let memberRolesIds=member.roles.cache.array().map((role)=>(role.id)).filter((roleId)=>(roleId != this.everyoneRole.id));
 			let toAdd=memberDoc.rolesIds.filter((roleId)=>(!memberRolesIds.includes(roleId)));
 			let toRemove=memberRolesIds.filter((roleId)=>(!memberDoc.rolesIds.includes(roleId)));
-			toRemove.forEach(async(roleId)=>{
-				if (member) await member.roles.remove(roleId).then(async()=>{
+			toRemove.forEach((roleId)=>{
+				member.roles.remove(roleId).then(()=>{
 					console.log(`GoodGamers.exe: User ${member.user.username} lost ${this.roles.cache.get(roleId).name}.`);
-				}).catch((error)=>{console.trace(error);});
+				}).catch((error)=>{
+					//console.trace(error);
+				});
 			});
-			toAdd.forEach(async(roleId)=>{
-				if (member) await member.roles.add(roleId).then(async()=>{
+			toAdd.forEach((roleId)=>{
+				member.roles.add(roleId).then(()=>{
 					console.log(`GoodGamers.exe: User ${member.user.username} got ${this.roles.cache.get(roleId).name}.`);
 				}).catch((error)=>{
-					console.trace(error);
+					//console.trace(error);
 				});
 			});
 		}

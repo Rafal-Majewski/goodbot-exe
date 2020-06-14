@@ -12,6 +12,7 @@ module.exports={
 			data.guild.members.fetch(memberId).then(async(member)=>{
 				let personelRoleIndex=data.server.personelRoles.findIndex((role)=>(member.roles.cache.has(role.id)));
 				getMemberDoc(member).then((memberDoc)=>{
+					if (memberDoc.annoying) return data.message.reply("The user is already punished.");
 					if (personelRoleIndex == -1) {
 						if (data.parameters[1] == undefined) return data.message.reply(`You need to provide a duration.`);
 						if (isNaN(data.parameters[1])) return data.message.reply(`${data.parameters[1]} is not a valid number.`);
