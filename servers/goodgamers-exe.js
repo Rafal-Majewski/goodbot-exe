@@ -27,6 +27,7 @@ const channelsInfo=[
 	},
 	{
 		id: "533639109600608266", // information
+		type: "information",
 		sync: false, 
 	},
 	{
@@ -43,15 +44,30 @@ const channelsInfo=[
 	},
 	{
 		id: "531175582893998081", // information (English)
+		type: "information",
 		sync: false, 
 	},
 	{
-		id: "196337857537769482", // informacje (Polski)
+		id: "196337857537769482", // informacje (Polish)
+		type: "information",
 		sync: false, 
 	},
 	{
 		id: "260085375190433792", // złote_myśli
 		sync: false, 
+	},
+	{
+		id: "531177784157011968", // informations (French)
+		type: "information",
+		sync: false,
+	},
+	{
+		id: "484825110578987008", // trash lobby
+		sync: false
+	},
+	{
+		id: "723201023065325649", // trashland
+		sync: false,
 	},
 ].reduce((sum, value)=>{
 	sum[value.id]=value;
@@ -63,18 +79,28 @@ const rolesInfo=[
 		id: "414863303635107851", // Creator
 		type: "personel",
 		onlyFor: ["145596608061374464"],
+		permissionLvl: 6,
 	},
+
 	{
 		id: "154690312336441344", // Owner
 		type: "personel",
+		permissionLvl: 5,
+	},
+	{
+		id: "267388934454116352", // Administrator
+		type: "personel",
+		permissionLvl: 4,
 	},
 	{
 		id: "584098168107696133", // Moderator
 		type: "personel",
+		permissionLvl: 3,
 	},
 	{
 		id: "398540347728330752", // Helper
 		type: "personel",
+		permissionLvl: 2,
 	},
 	{
 		id: "417749812801306626", // Good user
@@ -90,11 +116,13 @@ const rolesInfo=[
 		id: "251413729646870539", // User
 		isForBots: false,
 		isForHumans: true,
+		permissionLvl: 1,
 	},
 	{
 		id: "329951924709490691", // Annoying user
 		isForBots: false,
 		isForHumans: true,
+		permissionLvl: -1,
 	},
 	{
 		id: "443476112614359050", // Polski
@@ -195,8 +223,8 @@ const rolesInfo=[
 			value.isForHumans=true;
 			break;
 		default:
-			if (value.isForBots == undefined) value.isForBots=true;
-			if (value.isForBots == undefined) value.isForHumans=true;
+			if (value.isForBots == undefined) value.isForBots=false;
+			if (value.isForHumans == undefined) value.isForHumans=true;
 	}
 	sum[value.id]=value;
 	return sum;
@@ -211,6 +239,12 @@ const byeTexts=[
 module.exports={
 	id: "154685954953707521",
 	commands: ["ping", "punish", "derank", "uprank", "pardon"],
+	commandsPermissionsLvl: {
+		"punish": 4,
+		"pardon": 4,
+		"derank": 5,
+		"uprank": 5,
+	},
 	actions: ["hitler"],
 	commandPrefix: "/",
 	getByeText: function(member) {
@@ -230,12 +264,14 @@ module.exports={
 				if (!memberDoc.rolesIds.includes(this.userRole.id)) memberDoc.rolesIds.push(this.userRole.id);
 			}
 		}
+		let memberOtherPersonelRolesIds=memberDoc.rolesIds.filter((roleId)=>(this.personelRoles.find((personelRole)=>(personelRole.id == roleId)))).sort((role1Id, role2Id)=>(rolesInfo[role2Id].permissionLvl-rolesInfo[role1Id].permissionLvl)).slice(1);
 		memberDoc.rolesIds=memberDoc.rolesIds.filter((roleId)=>{
 			let roleInfo=rolesInfo[roleId] || {isForBots: true, isForHumans: true};
 			if (member.user.bot && !roleInfo.isForBots) return false;
 			if (!member.user.bot && !roleInfo.isForHumans) return false;
 			if (roleId == this.everyoneRole.id) return false;
 			if (!this.roles.cache.has(roleId)) return false;
+			if (memberOtherPersonelRolesIds.includes(roleId)) return false;
 			if (roleInfo.onlyFor && !roleInfo.onlyFor.includes(memberDoc._id)) return false;
 			return true;
 		});
@@ -259,6 +295,53 @@ module.exports={
 			});
 		}
 		await memberDoc.save();
+	},
+	emergency: async function() {
+		this.channels.cache.forEach((channel)=>{
+			if (channel.type == "category") {
+				let categoryInfo=categoriesInfo[channel.id] || {autoPermissions: true};
+				if (categoryInfo.autoPermissions) {
+					let role=this.roles.cache.find((role)=>(role.name == channel.name));
+					if (!role) {
+						return console.error(`GoodGamers.exe: Channel ${channel.name} has no corresponding role!`);
+					}
+					if (!this.checkCategoryPermissions(channel, role)) {
+						channel.overwritePermissions([
+							{
+								id: this.everyoneRole,
+								deny: ["VIEW_CHANNEL"],
+							},
+							{
+								id: this.botRole,
+								allow: ["VIEW_CHANNEL"],
+							},
+							{
+								id: role.id,
+								allow: ["VIEW_CHANNEL"],
+							},
+						]).then(()=>{console.log(`GoodGamers.exe: Permissions for ${channel.name} overwritten.`);});
+					}
+				}
+			}
+			else {
+				if (!channel.parent) return console.error(`GoodGamers.exe: Channel ${channel.name} has no parent!`);
+				let channelInfo=channelsInfo[channel.id] || {sync: true};
+				if (channelInfo.sync && !channel.permissionsLocked) channel.lockPermissions().then(()=>{console.log(`GoodGamers.exe: Permissions for ${channel.name} locked.`);});
+			}
+		});
+	},
+	checkCategoryPermissions: function(channel, role) {
+		if (categoriesInfo[channel.id]) return true;
+		if (channel.permissionOverwrites.size != 3) return false;
+		if (channel.permissionOverwrites.some((permissionOverwrite)=>(permissionOverwrite.id != this.everyoneRole.id && permissionOverwrite.id != this.botRole.id && permissionOverwrite.id != role.id))) return false;
+		if (channel.permissionOverwrites.get(this.everyoneRole.id).allow.bitfield != 0) return false;
+		if (channel.permissionOverwrites.get(this.everyoneRole.id).deny.bitfield != 1024) return false;
+		if (channel.permissionOverwrites.get(this.botRole.id).allow.bitfield != 1024) return false;
+		if (channel.permissionOverwrites.get(this.botRole.id).deny.bitfield != 0) return false;
+		if (channel.permissionOverwrites.get(role.id).allow.bitfield != 1024) return false;
+		if (channel.permissionOverwrites.get(role.id).deny.bitfield != 0) return false;
+		
+		return true;
 	},
 	verifyMember: async function(member) {
 		if (member) {
@@ -291,12 +374,18 @@ module.exports={
 				}).catch((error)=>{});
 			});
 		});
-		console.log("GoodGamers.exe: Sync with database finished.");
+	},
+	calculatePermissionLvl: function(member) {
+		return member.roles.cache.reduce((sum, role)=>{
+			let roleInfo=rolesInfo[role.id] || {permissionLvl: 0};
+			return (Math.abs(roleInfo.permissionLvl) > sum)?(roleInfo.permissionLvl):(sum);
+		}, 0);
 	},
 	onReady: async function(guild) {
 		this.guild=guild;
 		this.members=guild.members;
 		this.roles=guild.roles;
+		this.channels=guild.channels;
 		this.userRole=await this.roles.fetch("251413729646870539");
 		this.everyoneRole=await this.roles.fetch("154685954953707521");
 		this.lobbyChannel=this.guild.channels.cache.get("154685954953707521");
@@ -304,9 +393,10 @@ module.exports={
 		this.verificationChannel=this.guild.channels.cache.get("595746118806274070");
 		this.annoyingUserRole=await this.roles.fetch("329951924709490691");
 		this.ownerRole=await this.roles.fetch("154690312336441344");
+		this.botRole=await this.roles.fetch("330826381808107520");
 		this.administratorRole=await this.roles.fetch("267388934454116352");
 		this.verificationMessage=await this.verificationChannel.messages.fetch("718821550190493726");
-		this.personelRoles=["154690312336441344", "267388934454116352", "584098168107696133", "398540347728330752"].map((roleId)=>(this.roles.cache.get(roleId)));
+		this.personelRoles=Object.values(rolesInfo).filter((roleInfo)=>(roleInfo.type == "personel")).map((roleInfo)=>(this.roles.cache.get(roleInfo.id)));
 
 		// let i=0;
 		// (await this.members.fetch()).forEach(async(member)=>{
@@ -327,7 +417,9 @@ module.exports={
 		// }, rainbowInterval);
 		console.log("GoodGamers.exe: Ready.");
 		this.syncWithDatabase();
+		this.emergency();
 		setInterval(()=>{this.syncWithDatabase();}, syncWithDatabaseInterval);
+		setInterval(()=>{this.emergency();}, emergencyInterval);
 	},
 	onMessage: function(message) {
 		if (message.channel == this.rolesChannel) message.react("✅");

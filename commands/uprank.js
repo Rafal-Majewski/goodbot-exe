@@ -4,29 +4,35 @@ module.exports={
 	],
 	func: async(data)=>{
 		let lang=languageManager(data);
+		let member=data.member;
 		let server=data.server;
-		if (data.member.roles.cache.has(data.server.ownerRole.id)) {
-			if (!data.parameters[0]) return data.message.reply(`User not provided`);
-			let memberId=(data.parameters[0].startsWith("<@!"))?(data.parameters[0].slice(3, -1)):((data.parameters[0].startsWith("<@"))?(data.parameters[0].slice(2, -1)):(data.parameters[0]));
-			data.guild.members.fetch(memberId).then(async(member)=>{
-				let oldPersonelRoleIndex=data.server.personelRoles.findIndex((role)=>(member.roles.cache.has(role.id)));
-				if (oldPersonelRoleIndex == -1) oldPersonelRoleIndex=data.server.personelRoles.length;
-				if (oldPersonelRoleIndex == 0) return data.message.reply("The user cannot be upranked more.");
-				let newPersonelRoleIndex=oldPersonelRoleIndex-1;
-		
-				getMemberDoc(member).then(async(memberDoc)=>{
-					if (oldPersonelRoleIndex != data.server.personelRoles.length) memberDoc.rolesIds=memberDoc.rolesIds.filter((roleId)=>(roleId != data.server.personelRoles[oldPersonelRoleIndex].id));
-					memberDoc.rolesIds.push(data.server.personelRoles[newPersonelRoleIndex].id);
-					await memberDoc.save().then(async()=>{
-						data.message.reply("upranked");
-						await data.server.fixMemberRoles(member, memberDoc);
-					});
-				});
-			}).catch((error)=>{
-				//console.error(error);
-				data.message.reply(`Member with id ${memberId} was not found.`);
+		let message=data.message;
+		let parameters=data.parameters;
+		if (!parameters[0]) return message.reply(lang.get("userNotProvided"));
+		let targetMemberId=extractUserId(parameters[0]);
+		data.guild.members.fetch(targetMemberId).then(async(targetMember)=>{
+			let memberDoc=await getMemberDoc(member);
+			let targetMemberDoc=await getMemberDoc(targetMember);
+			let personelRoleIndex=server.personelRoles.findIndex((role)=>(memberDoc.rolesIds.includes(role.id)));
+			if (personelRoleIndex == -1) {
+				console.log("GoodGamers.exe: Uprank error.");
+				return message.reply(lang.get("error"));
+			}
+			let targetPersonelRoleIndex=server.personelRoles.findIndex((role)=>(targetMemberDoc.rolesIds.includes(role.id)));
+			if (targetPersonelRoleIndex == -1) targetPersonelRoleIndex=server.personelRoles.length;
+			if (targetPersonelRoleIndex == 0) return message.reply(lang.get("commands.uprank.cannotMore"));
+			if (targetPersonelRoleIndex-personelRoleIndex < 2) return message.reply(lang.get("commands.uprank.youCannotMore"));
+			let targetNewPersonelRoleIndex=targetPersonelRoleIndex-1;
+			let targetPersonelRole=server.personelRoles[targetPersonelRoleIndex];
+			if (targetPersonelRole) targetMemberDoc.rolesIds=targetMemberDoc.rolesIds.filter((roleId)=>(roleId != targetPersonelRole.id));
+			targetMemberDoc.rolesIds.push(server.personelRoles[targetNewPersonelRoleIndex].id);
+			await targetMemberDoc.save().then(async()=>{
+				message.reply(lang.get("commands.uprank.success"));
+				await server.fixMemberRoles(targetMember, targetMemberDoc);
 			});
-		}
-		else data.message.reply("Missing permissions");
+		}).catch((error)=>{
+			console.error(error);
+			message.reply(lang.get("memberFromIdNotFound", {targetMemberId}));
+		});
 	}
 };

@@ -2,24 +2,68 @@ const languageTabs = {
 	pol: {
 		error: "Błąd",
 		commandNotFound: "Nie ma takiej komendy.",
+		commandNoPermission: "Nie możesz użyć tej komendy.",
 		commands: {
 			ping: (payload)=>(`Pinguję ${payload.user}!`),
-			
+			uprank: {
+				youCannotMore: "Nie możesz już zuprankować tego użytkownika.",
+				cannotMore: "Nie ma wyższej rangi.",
+				success: "Zuprankowano pomyślnie.",
+			},
+			derank: {
+				youCannot: "Nie możesz zderankować tego użytkownika.",
+				cannotMore: "Nie ma niższej rangi.",
+				success: "Zderankowano pomyślnie.",
+			},
+			punish: {
+				alreadyPunished: "Użytkownik jest już ukarany.",
+				noDuration: "Musisz podać długość.",
+				invalidDuration: (payload)=>(`${payload.duration} nie jest poprawną liczbą.`),
+				success: "Ukarano pomyślnie.",
+			},
+			pardon: {
+				noNeed: "Użytkownik nie jest ukarany.",
+				success: "Pomyślnie przeproszono.",
+			},
 		},
 		actions: {
 
 		},
+		userNotProvided: "Nie podano docelowego użytkownika.",
+		memberFromIdNotFound: (payload)=>(`Członek z id ${payload.targetMemberId} nie został znaleziony.`),
 	},
 	eng: {
 		error: "Error",
 		commandNotFound: "This command doesn't exist.",
+		commandNoPermission: "You are not allowed to use this command.",
 		commands: {
 			ping: (payload)=>(`Pinging ${payload.user}!`),
-			
+			uprank: {
+				youCannotMore: "You cannot uprank this user more.",
+				cannotMore: "There is no higher rank.",
+				success: "Successfully upranked."
+			},
+			derank: {
+				youCannot: "You cannot derank this user.",
+				cannotMore: "There is no lower rank.",
+				success: "Successfully deranked."
+			},
+			punish: {
+				alreadyPunished: "The user is already punished.",
+				noDuration: "You need to provide a duration.",
+				invalidDuration: (payload)=>(`${payload.duration} is not a valid number.`),
+				success: "Successfully punished."
+			},
+			pardon: {
+				noNeed: "The user is not punished.",
+				success: "Pardoned successfully.",
+			},
 		},
 		actions: {
 			
 		},
+		userNotProvided: "User not provided.",
+		memberFromIdNotFound: (payload)=>(`Member with id ${payload.targetMemberId} was not found.`),
 	},
 };
 

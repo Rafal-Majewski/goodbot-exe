@@ -5,24 +5,23 @@ module.exports={
 	],
 	func: async(data)=>{
 		let lang=languageManager(data);
+		let member=data.member;
 		let server=data.server;
-		if (data.member.roles.cache.has(data.server.administratorRole.id) || data.member.roles.cache.has(data.server.ownerRole.id)) {
-			if (!data.parameters[0]) return data.message.reply("User not provided");
-			let memberId=(data.parameters[0].startsWith("<@!"))?(data.parameters[0].slice(3, -1)):((data.parameters[0].startsWith("<@"))?(data.parameters[0].slice(2, -1)):(data.parameters[0]));
-			data.guild.members.fetch(memberId).then(async(member)=>{
-				getMemberDoc(member).then((memberDoc)=>{
-					if (!memberDoc.annoying) return data.message.reply("The user is ok");
-					memberDoc.annoying=null;
-					memberDoc.save().then(()=>{
-						data.server.fixMemberRoles(member, memberDoc);
-						return data.message.reply("pardoned");
-					});
-				});
-			}).catch((error)=>{
-				console.error(error);
-				data.message.reply(`Member with id ${memberId} was not found.`);
+		let message=data.message;
+		let parameters=data.parameters;
+		if (!parameters[0]) return message.reply(lang.get("userNotProvided"));
+		let targetMemberId=extractUserId(parameters[0]);
+		data.guild.members.fetch(targetMemberId).then(async(targetMember)=>{
+			let targetMemberDoc=await getMemberDoc(targetMember);
+			if (!targetMemberDoc.annoying) return message.reply(lang.get("commands.pardon.noNeed"));
+			targetMemberDoc.annoying=null;
+			targetMemberDoc.save().then(()=>{
+				data.server.fixMemberRoles(targetMember, targetMemberDoc);
+				return message.reply(lang.get("commands.pardon.success"));
 			});
-		}
-		else data.message.reply("Missing permissions");
+		}).catch((error)=>{
+			console.error(error);
+			message.reply(lang.get("memberFromIdNotFound", {targetMemberId}));
+		});
 	}
 };

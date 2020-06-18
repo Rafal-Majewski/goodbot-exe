@@ -57,12 +57,17 @@ global.servers=fs.readdirSync("./servers").reduce((sum, value)=>{
 }, {});
 const commands=fs.readdirSync("./commands").reduce((sum, value)=>{
 	let command=require(`./commands/${value}`);
+	let id=value.slice(0, -3);
+	command.id=id;
 	command.triggers=command.triggers.map((trigger)=>(trigger.map((word)=>(latinize(word.toLowerCase())))));
-	sum[value.slice(0, -3)]=command;
+	sum[id]=command;
 	return sum;
 }, {});
 const actions=fs.readdirSync("./actions").reduce((sum, value)=>{
-	sum[value.slice(0, -3)]=require(`./actions/${value}`);
+	let action=require(`./actions/${value}`);
+	let id=value.slice(0, -3);
+	action.id=id;
+	sum[id]=action;
 	return sum;
 }, {});
 
@@ -99,6 +104,8 @@ client.on("ready", ()=>{
 // 	}
 // },
 
+global.extractUserId=(text)=>((text.startsWith("<@!"))?(text.slice(3, -1)):((text.startsWith("<@"))?(text.slice(2, -1)):(text)));
+
 const callAction=(message)=>{
 	let server=servers[(message.guild && message.guild.id) || "direct"];
 	for (let actionId of server.actions) {
@@ -112,6 +119,7 @@ const callAction=(message)=>{
 			user: message.author,
 			userId: message.author.id,
 			message: message,
+			permissionLvl: server.calculatePermissionLvl(message.member),
 		};
 		action.trigger(data) && action.func(data);
 	}
@@ -148,6 +156,7 @@ const callCommand=(message)=>{
 		}
 	}
 	let parameters=splittedContent.slice(validCommandTriggerLongestLength);
+	let permissionLvl=server.calculatePermissionLvl(message.member);
 	let data={
 		server: server,
 		guild: message.guild,
@@ -156,9 +165,13 @@ const callCommand=(message)=>{
 		message: message,
 		user: message.author,
 		channel: message.channel,
-		parameters: parameters
+		parameters: parameters,
+		permissionLvl: permissionLvl,
 	};
-	if (validCommand) validCommand.func(data);
+	if (validCommand) {
+		if (server.commandsPermissionsLvl[validCommand.id] != undefined && server.commandsPermissionsLvl[validCommand.id] > permissionLvl) message.reply(languageManager(data).get("commandNoPermission"));
+		else validCommand.func(data);
+	}
 	else if (server.commandPrefix) message.reply(languageManager(data).get("commandNotFound"));
 };
 
