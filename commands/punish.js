@@ -23,6 +23,8 @@ module.exports={
 			let targetPersonelRole=data.server.personelRoles[targetPersonelRoleIndex];
 			let targetNewPersonelRoleIndex=targetPersonelRoleIndex+1;
 			let targetNewPersonelRole=server.personelRoles[targetNewPersonelRoleIndex];
+			console.log(targetPersonelRoleIndex-personelRoleIndex);
+			if (targetPersonelRoleIndex-personelRoleIndex < 1) return message.reply(lang.get("commands.punish.youCannot"));
 			if (targetMemberDoc.annoying) return message.reply(lang.get("commands.punish.alreadyPunished"));
 			if (targetPersonelRole) {
 				targetMemberDoc.rolesIds=targetMemberDoc.rolesIds.filter((roleId)=>(roleId != targetPersonelRole.id));

@@ -52,7 +52,8 @@ const languageTabs = {
 				alreadyPunished: "The user is already punished.",
 				noDuration: "You need to provide a duration.",
 				invalidDuration: (payload)=>(`${payload.duration} is not a valid number.`),
-				success: "Successfully punished."
+				success: "Successfully punished.",
+				youCannot: "You cannot punish this user.",
 			},
 			pardon: {
 				noNeed: "The user is not punished.",
