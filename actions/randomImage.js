@@ -1,10 +1,14 @@
 const GoogleImages = require("google-images");
 
 module.exports={
-    trigger: (data)=>(Math.random() < 0.1),
+    trigger: (data)=>{
+		
+		data.triggerPayload=data.message.content.split(" ").filter((word)=>(word)).map((word)=>(word.trim()));
+		return Math.random() < -0.9/Math.pow(data.triggerPayload.length, 0.3)+1;
+	},
     isOnlyForHumans: true,
     func: async(data)=>{
-		let words=data.message.content.split(" ").filter((word)=>(word)).map((word)=>(word.trim())).sort(()=>(Math.random()-0.5));
+		let words=data.triggerPayload.sort(()=>(Math.random()-0.5));
 		while (words.length != 0) {
 			let word=words.pop();
 			let images=(await googleImagesClient.search(word)).sort(()=>(Math.random()-0.5));
