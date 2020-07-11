@@ -6,6 +6,8 @@ global.languageManager=require("./lang.js");
 global.fs=require("fs");
 global.MemberDb=require("./models/member.js");
 global.mongoose=require("./mongoose.js");
+const GoogleImages=require("google-images");
+global.googleImagesClient=new GoogleImages(auth.googleImages.cseId, auth.googleImages.apiKey);
 global.getRainbowColor=(number)=>{
 	number*=6;
 	let r=0;

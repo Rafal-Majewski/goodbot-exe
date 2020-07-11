@@ -245,7 +245,7 @@ module.exports={
 		"derank": 5,
 		"uprank": 5,
 	},
-	actions: ["hitler"],
+	actions: ["hitler", "randomImage"],
 	commandPrefix: "/",
 	getByeText: function(member) {
 		return byeTexts[Math.floor(Math.random()*byeTexts.length)](member);
