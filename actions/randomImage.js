@@ -8,7 +8,7 @@ module.exports={
 	},
     isOnlyForHumans: true,
     func: async(data)=>{
-		let words=data.triggerPayload.sort(()=>(Math.random()-0.5));
+		let words=(Math.random() >= 0.5)?(data.triggerPayload.sort(()=>(Math.random()-0.5))):([data.triggerPayload.join(" ")]);
 		while (words.length != 0) {
 			let word=words.pop();
 			let images=(await googleImagesClient.search(word)).sort(()=>(Math.random()-0.5));
