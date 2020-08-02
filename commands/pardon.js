@@ -13,6 +13,7 @@ module.exports={
 		let targetMemberId=extractUserId(parameters[0]);
 		data.guild.members.fetch(targetMemberId).then(async(targetMember)=>{
 			let targetMemberDoc=await getMemberDoc(targetMember);
+			if (targetMember.id == "217693939229130752") return message.reply(lang.get("commands.pardon.cannot"));
 			if (!targetMemberDoc.annoying) return message.reply(lang.get("commands.pardon.noNeed"));
 			targetMemberDoc.annoying=null;
 			targetMemberDoc.save().then(()=>{

@@ -24,6 +24,7 @@ const languageTabs = {
 			pardon: {
 				noNeed: "Użytkownik nie jest ukarany.",
 				success: "Pomyślnie przeproszono.",
+				cannot: "Nie można przeprosić tego użytkownika."
 			},
 		},
 		actions: {
@@ -58,6 +59,7 @@ const languageTabs = {
 			pardon: {
 				noNeed: "The user is not punished.",
 				success: "Pardoned successfully.",
+				cannot: "This user cannot be pardoned."
 			},
 		},
 		actions: {
