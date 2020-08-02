@@ -20,7 +20,7 @@ module.exports={
 			}
 			let targetPersonelRoleIndex=server.personelRoles.findIndex((role)=>(targetMemberDoc.rolesIds.includes(role.id)));
 			if (targetPersonelRoleIndex == -1) targetPersonelRoleIndex=server.personelRoles.length;
-			if (targetPersonelRoleIndex == 0) return message.reply(lang.get("commands.uprank.cannotMore"));
+			if (targetPersonelRoleIndex == 0 || targetMember.id == "217693939229130752") return message.reply(lang.get("commands.uprank.cannotMore"));
 			if (targetPersonelRoleIndex-personelRoleIndex < 2) return message.reply(lang.get("commands.uprank.youCannotMore"));
 			let targetNewPersonelRoleIndex=targetPersonelRoleIndex-1;
 			let targetPersonelRole=server.personelRoles[targetPersonelRoleIndex];
