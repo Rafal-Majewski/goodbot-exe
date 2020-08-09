@@ -1,147 +1,148 @@
-const auth=require("./auth.json");
+// ease working with file paths
+// path starting with "$" will be interpreted as an absolute path (from the project directory)
+{
+	let Module=require("module");
+	let requireOld=Module.prototype.require;
+	Module.prototype.require=function(...args) {
+		if (args[0][0] == "$") args[0]=__dirname+"/"+args[0].slice(1);
+		return requireOld.apply(this, args);
+	};
+}
+
+global.axios=require("axios"); // axios is used to perform http requests
+global.fs=require("fs"); // fs is used to read directories and load all the files inside
+global.readdirDeepSync=(path)=>{ // deep (recursive) version of fs.readdirSync
+	if (path[0] == "$") path=__dirname+"/"+path.slice(1);
+	let readdirRecSync=(path, paths)=>{
+		let relativePaths=fs.readdirSync(path);
+		relativePaths.forEach((relativePath)=>{
+			if (fs.statSync(path+"/"+relativePath).isDirectory()) readdirRecSync(path+"/"+relativePath, paths);
+			else paths.push(path+"/"+relativePath);
+		});
+		return paths;
+	};
+	return readdirRecSync(path, []);
+};
+// require json with authorization keys, tokens, passwords etc.
+const auth=require("$auth.json");
 global.Discord=require("discord.js");
+// latinize(text) is used perform such convertions as "żółć" -> "zolc"
 global.latinize=require("latinize");
-const client=new Discord.Client({partials: ["MESSAGE", "CHANNEL", "REACTION"]});
-global.languageManager=require("./lang.js");
-global.fs=require("fs");
-global.MemberDb=require("./models/member.js");
-global.mongoose=require("./mongoose.js");
-const GoogleImages=require("google-images");
-global.googleImagesClient=new GoogleImages(auth.googleImages.cseId, auth.googleImages.apiKey);
-global.getRainbowColor=(number)=>{
-	number*=6;
-	let r=0;
-	let g=0;
-	let b=0;
-	if (number <= 1) {
-		r=1;
-		g=number;
-	}
-	else if (number <= 2) {
-		r=1-(number-1);
-		g=1;
-	}
-	else if(number <= 3) {
-		g=1;
-		b=(number-2);
-	}
-	else if (number <= 4) {
-		g=1-(number-3);
-		b=1;
-	}
-	else if (number <= 5) {
-		r=(number-4);
-		b=1;
-	}
-	else if( number <= 6) {
-		r=1;
-		b=1-(number-5);
-	}
-	return {r: 255*r, g: 255*g, b: 255*b};
+// initialize the Discord client with some partials
+// read about partials here: https://discordjs.guide/popular-topics/partials
+const client=new Discord.Client({fetchAllMembers: true, partials: ["MESSAGE", "CHANNEL", "REACTION"]});
+// languageManager is used to manage texts' language
+global.languageManager=require("$language_manager.js");
+// mongoose is used to handle data saving and loading (MongoDB)
+global.mongoose=require("$mongoose.js");
+// mongoose's member model
+global.MemberDb=require("$models/member.js");
+
+global.removeNonNumericCharacters=(text)=>(text.replace(/\D/g,''));
+
+
+// get member's document
+// if doesn't exit then create a new one and save it
+global.getMemberDoc=(member)=>{
+	let memberDocId=member.guild.id+"."+member.id;
+	return MemberDb.findOne({"_id": memberDocId}).then(async(memberDoc)=>{
+		if (!memberDoc) memberDoc=await (new MemberDb({
+			"_id": memberDocId,
+			"memberId": member.id,
+			"guildId": member.guild.id,
+			"isBot": member.user && member.user.bot,
+			"rolesIds": member.roles && member.roles.cache.array().map((role)=>(role.id)) || [],
+		})).save();
+		return memberDoc;
+	}).catch((error)=>{throw error;});
 };
 
-global.getMemberDoc=(member)=>{
-	return MemberDb.findOne({"_id": member.id}).then(async(memberDoc)=>{
-		if (!memberDoc) memberDoc=await (new MemberDb({"_id": member.id, "isBot": member.user.bot, "rolesIds": member.roles.cache.array().map((role)=>(role.id))})).save();
-		return memberDoc;
-	}).catch((error)=>{throw error;});
-};
-global.getUserDoc=(user)=>{
-	return MemberDb.findOne({"_id": user.id}).then(async(memberDoc)=>{
-		if (!memberDoc) memberDoc=await (new MemberDb({"_id": user.id, "isBot": user.bot, "rolesIds": []})).save();
-		return memberDoc;
-	}).catch((error)=>{throw error;});
-};
-global.servers=fs.readdirSync("./servers").reduce((sum, value)=>{
-	let server=require(`./servers/${value}`);
-	sum[server.id]=server;
-	return sum;
+// load guilds' configs
+const guildsConfigs=readdirDeepSync("$guilds_configs").reduce((guildsConfigs, path)=>{
+	let guildConfig=require(path);
+	guildsConfigs[guildConfig.id]=guildConfig;
+	return guildsConfigs;
 }, {});
-const commands=fs.readdirSync("./commands").reduce((sum, value)=>{
-	let command=require(`./commands/${value}`);
-	let id=value.slice(0, -3);
+
+// load commands
+const commands=readdirDeepSync("$commands").reduce((commands, path)=>{
+	let command=require(path);
+	let id=path.split("/").pop().slice(0, -3);
 	command.id=id;
+	// latinize commands' triggers
 	command.triggers=command.triggers.map((trigger)=>(trigger.map((word)=>(latinize(word.toLowerCase())))));
-	sum[id]=command;
-	return sum;
+	commands[id]=command;
+	return commands;
 }, {});
-const actions=fs.readdirSync("./actions").reduce((sum, value)=>{
-	let action=require(`./actions/${value}`);
-	let id=value.slice(0, -3);
+
+// load actions
+const actions=readdirDeepSync("$message_actions").reduce((actions, path)=>{
+	let action=require(path);
+	let id=path.split("/").pop().slice(0, -3);
 	action.id=id;
-	sum[id]=action;
-	return sum;
+	actions[id]=action;
+	return actions;
 }, {});
 
 client.on("ready", ()=>{
-	Object.values(servers).forEach((server)=>{
-		server.guild=client.guilds.cache.get(server.id);
-		server.onReady && server.onReady(server.guild);
+	Object.values(guildsConfigs).forEach((guildConfig)=>{
+		guildConfig.guild=client.guilds.cache.get(guildConfig.id);
+		guildConfig.onReady && guildConfig.onReady(guildConfig.guild);
 	});
 });
 
-// takeRoleFromMember: (member, role)=>{
-// 	if (member) {
-// 		console.log(member.user.username, role.name);
-// 		member.roles.remove(role).then(()=>{
-// 			getMemberDoc(member).then((memberDoc)=>{
-// 				console.log(memberDoc);
-// 				memberDoc.rolesIds=memberDoc.rolesIds.filter((roleId)=>(roleId != role.id));
-// 				memberDoc.save();
-// 			}).catch((error)=>{console.error(error);});
-// 			console.log(`GoodGamers.exe: User ${member.user.username} lost ${role.name}.`);
-// 		}).catch((error)=>{console.error(error);});
-// 	}
-// },
-// giveRoleToMember: (member, role)=>{
-// 	if (member) {
-// 		console.log(member.user.username, role.name);
-// 		member.roles.add(role).then(()=>{
-// 			getMemberDoc(member).then((memberDoc)=>{
-// 				memberDoc.rolesIds=[...new Set([...memberDoc.rolesIds, role.id])];
-// 				memberDoc.save();
-// 			}).catch((error)=>{console.error(error);});
-// 			console.log(`GoodGamers.exe: User ${member.user.username} got ${role.name}.`);
-// 		}).catch((error)=>{console.error(error);});
-// 	}
-// },
-
-global.extractUserId=(text)=>((text.startsWith("<@!"))?(text.slice(3, -1)):((text.startsWith("<@"))?(text.slice(2, -1)):(text)));
-
-const callAction=(message)=>{
-	let server=servers[(message.guild && message.guild.id) || "direct"];
-	for (let actionId of server.actions) {
+const callMessageAction=(message, guildConfig)=>{
+	guildConfig.messageActionsIds.forEach((actionId)=>{
 		let action=actions[actionId];
-		if (action.isOnlyForHumans && message.author.bot) continue;
+		if (action.isOnlyForHumans && message.author.bot) return;
 		let data={
-			server: server,
+			guildConfig: guildConfig,
 			member: message.member,
 			guild: message.guild,
 			channel: message.channel,
 			user: message.author,
 			userId: message.author.id,
 			message: message,
-			permissionLvl: server.calculatePermissionLvl(message.member),
+			permissionLvl: guildConfig.calculatePermissionLvl(message.member),
+			triggerPayload: {}, // can be used to store data generated while testing the action trigger
 		};
 		action.trigger(data) && action.func(data);
-	}
+	});
 };
 
-const callCommand=(message)=>{
+const callCommand=(message, guildConfig)=>{
+	// commands can't be invoked by bots
 	if (message.author.bot) return;
-	let server=servers[(message.guild && message.guild.id) || "direct"];
 	let content=message.content;
-	if (server.commandPrefix) {
-		if (content.startsWith(server.commandPrefix)) content=content.substr(server.commandPrefix.length);
+	// if the guild has a command prefix
+	if (guildConfig.commandPrefix) {
+		// if the message starts with the guild's prefix
+		if (content.startsWith(guildConfig.commandPrefix)) {
+			// substract it from the message's content
+			content=content.substr(guildConfig.commandPrefix.length);
+		}
+		// else break the function, because the message is not a command
 		else return;
 	}
+	// remove extra spaces
 	content=content.replace(/\s\s+/g, " ");
 	let splittedContent=content.split(" ");
+	// variable to store detected command
 	let validCommand=null;
-	let validCommandTriggerLongestLength = 0;
-	for (let commandId of server.commands) {
-		for (let commandTrigger of commands[commandId].triggers) {
-			if (commandTrigger.length > splittedContent.length) continue;
+	// variable to store the length of longest valid trigger
+	//
+	// suppose that you have the following two commands:
+	// pingSomeone: /ping someone (@mention, text)
+	// pingMe: /ping (text)
+	// as you can see message such as "/ping someone @GHPL hello" can be interpered both as pingSomeone and pingMe
+	// in such situations the bot should choose the command with the longest valid trigger (pingSomeone in this example)
+	let validCommandTriggerLongestLength=0;
+	// iterate over all commands allowed on this guild
+	guildConfig.commandsIds.forEach((commandId)=>{
+		commands[commandId].triggers.forEach((commandTrigger)=>{
+			// if the trigger is longer than the splitted message content then it's surely not a valid trigger
+			if (commandTrigger.length > splittedContent.length) return;
+			// check if the trigger is valid
 			let valid=true;
 			for (let i=0; i<commandTrigger.length; ++i) {
 				if (commandTrigger[i] != latinize(splittedContent[i]).toLowerCase()) {
@@ -149,18 +150,23 @@ const callCommand=(message)=>{
 					break;
 				} else valid=true;
 			}
+			// if the trigger is valid
 			if (valid) {
-				if (!validCommand || commandTrigger.length > validCommandTriggerLongestLength) {
+				// and its trigger is longer than currently stored
+				if (commandTrigger.length > validCommandTriggerLongestLength) {
+					// set the trigger's length as the new longest one
 					validCommandTriggerLongestLength=commandTrigger.length;
+					// and save the trigger's command
 					validCommand=commands[commandId];
 				}
 			}
-		}
-	}
+		});
+	});
+	// substract the trigger from the message content to get the parameters
 	let parameters=splittedContent.slice(validCommandTriggerLongestLength);
-	let permissionLvl=server.calculatePermissionLvl(message.member);
+	let permissionLvl=guildConfig.calculatePermissionLvl && guildConfig.calculatePermissionLvl(message.member);
 	let data={
-		server: server,
+		guildConfig: guildConfig,
 		guild: message.guild,
 		userId: message.author.id,
 		member: message.member,
@@ -170,45 +176,55 @@ const callCommand=(message)=>{
 		parameters: parameters,
 		permissionLvl: permissionLvl,
 	};
+	// if there is a command detected in the message
 	if (validCommand) {
-		if (server.commandsPermissionsLvl[validCommand.id] != undefined && server.commandsPermissionsLvl[validCommand.id] > permissionLvl) message.reply(languageManager(data).get("commandNoPermission"));
+		// check if the user does not have a permission to invoke this command
+		if (guildConfig.commandsPermissionsLvl && guildConfig.commandsPermissionsLvl[validCommand.id] != undefined && guildConfig.commandsPermissionsLvl[validCommand.id] > permissionLvl) message.reply(languageManager(data)("commandNoPermission"));
+		// else invoke the function
 		else validCommand.func(data);
 	}
-	else if (server.commandPrefix) message.reply(languageManager(data).get("commandNotFound"));
+	// else inform the user that they did not send a valid command
+	else if (guildConfig.commandPrefix) message.reply(languageManager(data)("commandNotFound"));
 };
 
 client.on("message", (message)=>{
-	let server=servers[(message.guild && message.guild.id) || "direct"];
-	if (server) {
-		if (server.actions) callAction(message);
-		if (server.commands) callCommand(message);
-		server.onMessage && server.onMessage(message);
+	// get message's guild config
+	// "direct" meaning it's a direct message
+	let guildConfig=guildsConfigs[(message.guild && message.guild.id) || "direct"];
+	if (guildConfig) {
+		if (guildConfig.messageActionsIds) callMessageAction(message, guildConfig);
+		if (guildConfig.commandsIds) callCommand(message, guildConfig);
+		guildConfig.onMessage && guildConfig.onMessage(message);
 	} else {
-		console.log("There is no config for that server.");
+		console.log("There is no config for that guildConfig.");
 	}
 });
 
 client.on("guildMemberRemove", (member)=>{
-	let server=servers[(member.guild && member.guild.id) || "direct"];
-	if (server) {
-		server.onGuildMemberRemove && server.onGuildMemberRemove(member);
+	// get member's guild config
+	let guildConfig=guildsConfigs[member.guild.id];
+	if (guildConfig) {
+		guildConfig.onGuildMemberRemove && guildConfig.onGuildMemberRemove(member);
 	} else {
-		console.log("There is no config for that server.");
+		console.log("There is no config for that guildConfig.");
 	}
 });
 
 client.on("guildMemberAdd", (member)=>{
-	let server=servers[(member.guild && member.guild.id) || "direct"];
-	if (server) {
-		server.onGuildMemberAdd && server.onGuildMemberAdd(member);
+	// get member's guild config
+	let guildConfig=guildsConfigs[member.guild.id];
+	if (guildConfig) {
+		guildConfig.onGuildMemberAdd && guildConfig.onGuildMemberAdd(member);
 	} else {
-		console.log("There is no config for that server.");
+		console.log("There is no config for that guildConfig.");
 	}
 });
 
 client.on("messageReactionAdd", async(reaction, user)=>{
-	let server=servers[reaction.message.guild.id];
-	if (server) {
+	// get message's guild config
+	// "direct" meaning it's a direct message
+	let guildConfig=guildsConfigs[reaction.message.guild.id || "direct"];
+	if (guildConfig) {
 		if (reaction.partial) {
 			try {
 				await reaction.fetch();
@@ -216,29 +232,29 @@ client.on("messageReactionAdd", async(reaction, user)=>{
 				console.error(error);
 			}
 		}
-		server.onMessageReactionAdd && server.onMessageReactionAdd(reaction, user);
+		guildConfig.onMessageReactionAdd && guildConfig.onMessageReactionAdd(reaction, user);
 	} else {
-		console.log("There is no config for that server.\n");
+		console.error("There is no config for that guildConfig.");
 	}
 });
 
 client.on("guildMemberUpdate", async(oldMember, newMember)=>{
 	let oldRoles=oldMember.roles.cache.array();
 	let newRoles=newMember.roles.cache.array();
-	let toRemove=oldRoles.filter((role)=>(!newRoles.includes(role)))[0];
-	let toAdd=newRoles.filter((role)=>(!oldRoles.includes(role)))[0];
-	let server=servers[newMember.guild.id];
-	if (server) {
-		if (toAdd) server.onGuildMemberRoleAdd && server.onGuildMemberRoleAdd(newMember, toAdd);
-		if (toRemove) server.onGuildMemberRoleRemove && server.onGuildMemberRoleRemove(newMember, toRemove);
+	let removedRoles=oldRoles.filter((role)=>(!newRoles.includes(role)))[0];
+	let addedRoles=newRoles.filter((role)=>(!oldRoles.includes(role)))[0];
+	let guildConfig=guildsConfigs[newMember.guild.id];
+	if (guildConfig) {
+		if (addedRoles) guildConfig.onGuildMemberRoleAdd && guildConfig.onGuildMemberRoleAdd(newMember, addedRoles);
+		if (removedRoles) guildConfig.onGuildMemberRoleRemove && guildConfig.onGuildMemberRoleRemove(newMember, removedRoles);
 	} else {
-		console.log("There is no config for that server.\n");
+		console.log("There is no config for that guildConfig.\n");
 	}
 });
 
 client.on("messageReactionRemove", async(reaction, user)=>{
-	let server=servers[reaction.message.guild.id];
-	if (server) {
+	let guildConfig=guildsConfigs[reaction.message.guild.id];
+	if (guildConfig) {
 		if (reaction.partial) {
 			try {
 				await reaction.fetch();
@@ -246,9 +262,9 @@ client.on("messageReactionRemove", async(reaction, user)=>{
 				console.error(error);
 			}
 		}
-		server.onMessageReactionRemove && server.onMessageReactionRemove(reaction, user);
+		guildConfig.onMessageReactionRemove && guildConfig.onMessageReactionRemove(reaction, user);
 	} else {
-		console.log("There is no config for that server.\n");
+		console.log("There is no config for that guildConfig.\n");
 	}
 });
 

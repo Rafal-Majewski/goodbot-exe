@@ -3,17 +3,11 @@ const Schema=mongoose.Schema;
 
 const memberDbSchema=new Schema({
 	_id: {type: String},
-	annoying: {type: Number},
+	memberId: {type: String},
+	guildId: {type: String},
 	rolesIds: {type: Array, of: {type: String, unique: true}},
 	isBot: {type: Boolean},
-});
-
-memberDbSchema.virtual("id").get(function() {
-	return this._id;
-});
-
-memberDbSchema.set("toJSON", {
-	virtuals: true
+	extraData: {type: Map}, // used to store guild-specific member's data
 });
 
 const MemberDb=mongoose.model("members", memberDbSchema);

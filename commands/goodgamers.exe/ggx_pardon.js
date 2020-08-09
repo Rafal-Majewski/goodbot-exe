@@ -17,7 +17,7 @@ module.exports={
 			if (!targetMemberDoc.annoying) return message.reply(lang.get("commands.pardon.noNeed"));
 			targetMemberDoc.annoying=null;
 			targetMemberDoc.save().then(()=>{
-				data.server.fixMemberRoles(targetMember, targetMemberDoc);
+				if (targetMember) data.server.fixMemberRoles(targetMember, targetMemberDoc);
 				return message.reply(lang.get("commands.pardon.success"));
 			});
 		}).catch((error)=>{

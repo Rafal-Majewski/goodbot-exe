@@ -5,6 +5,6 @@ module.exports={
 	],
 	func: (data)=>{
 		let lang=languageManager(data);
-		data.channel.send(lang.get("commands.ping"));
+		data.channel.send(lang("commands.ping"));
 	}
 };

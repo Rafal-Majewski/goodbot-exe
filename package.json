@@ -13,6 +13,7 @@
   "author": "Rafał Majewski",
   "license": "Unlicense",
   "dependencies": {
+    "axios": "^0.19.2",
     "discord.js": "^12.2.0",
     "google-images": "^2.1.0",
     "latinize": "^0.4.1",
