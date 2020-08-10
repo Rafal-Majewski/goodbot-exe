@@ -26,8 +26,8 @@ module.exports={
 						files: [image.url]
 					});
 				}
-			} catch {
-
+			} catch(error) {
+				//console.error(error);
 			}
 		}
     }

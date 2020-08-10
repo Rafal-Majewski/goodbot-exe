@@ -4,25 +4,29 @@ module.exports={
 		["przepros"],
 	],
 	func: async(data)=>{
+		// init a language manager
 		let lang=languageManager(data);
-		let member=data.member;
-		let server=data.server;
+		let guildConfig=data.guildConfig;
 		let message=data.message;
 		let parameters=data.parameters;
-		if (!parameters[0]) return message.reply(lang.get("userNotProvided"));
-		let targetMemberId=extractUserId(parameters[0]);
-		data.guild.members.fetch(targetMemberId).then(async(targetMember)=>{
-			let targetMemberDoc=await getMemberDoc(targetMember);
-			if (targetMember.id == "217693939229130752") return message.reply(lang.get("commands.pardon.cannot"));
-			if (!targetMemberDoc.annoying) return message.reply(lang.get("commands.pardon.noNeed"));
-			targetMemberDoc.annoying=null;
-			targetMemberDoc.save().then(()=>{
-				if (targetMember) data.server.fixMemberRoles(targetMember, targetMemberDoc);
-				return message.reply(lang.get("commands.pardon.success"));
-			});
-		}).catch((error)=>{
-			console.error(error);
-			message.reply(lang.get("memberFromIdNotFound", {targetMemberId}));
+		// check if the invoker provided a target member, if not throw an error
+		if (!parameters[0]) return message.reply(lang("userNotProvided"));
+		// extract the target member id
+		let targetMemberId=removeNonNumericCharacters(parameters[0]);
+		// try to fetch the target member
+		let targetMember;
+		try {
+			targetMember=await data.guild.members.fetch(targetMemberId);
+		} catch {
+			// the target member is not on the guild, throw an error
+			return message.reply(lang("memberFromIdNotFound", {targetMemberId}));
+		}
+		// get target member's doc
+		let targetMemberDoc=await getMemberDoc(targetMember);
+		if (!targetMemberDoc.extraData.get("annoying")) return message.reply(lang("commands.pardon.noNeed"));
+		targetMemberDoc.extraData.set("annoying", null);
+		guildConfig.fixMemberRoles(targetMember, targetMemberDoc).then(()=>{
+			return message.reply(lang("commands.pardon.success"));
 		});
 	}
 };

@@ -91,8 +91,8 @@ client.on("ready", ()=>{
 	});
 });
 
-const callMessageAction=(message, guildConfig)=>{
-	guildConfig.messageActionsIds.forEach((actionId)=>{
+const callMessageAction=async(message, guildConfig)=>{
+	guildConfig.messageActionsIds.forEach(async(actionId)=>{
 		let action=actions[actionId];
 		if (action.isOnlyForHumans && message.author.bot) return;
 		let data={
@@ -103,14 +103,14 @@ const callMessageAction=(message, guildConfig)=>{
 			user: message.author,
 			userId: message.author.id,
 			message: message,
-			permissionLvl: guildConfig.calculatePermissionLvl(message.member),
+			permissionLvl: await guildConfig.calculatePermissionLvl(message.member),
 			triggerPayload: {}, // can be used to store data generated while testing the action trigger
 		};
 		action.trigger(data) && action.func(data);
 	});
 };
 
-const callCommand=(message, guildConfig)=>{
+const callCommand=async(message, guildConfig)=>{
 	// commands can't be invoked by bots
 	if (message.author.bot) return;
 	let content=message.content;
@@ -164,7 +164,7 @@ const callCommand=(message, guildConfig)=>{
 	});
 	// substract the trigger from the message content to get the parameters
 	let parameters=splittedContent.slice(validCommandTriggerLongestLength);
-	let permissionLvl=guildConfig.calculatePermissionLvl && guildConfig.calculatePermissionLvl(message.member);
+	let permissionLvl=guildConfig.calculatePermissionLvl && await guildConfig.calculatePermissionLvl(message.member);
 	let data={
 		guildConfig: guildConfig,
 		guild: message.guild,

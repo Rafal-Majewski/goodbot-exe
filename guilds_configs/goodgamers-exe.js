@@ -25,8 +25,8 @@ module.exports={
 		return `:flag_us::flag_gb: Hello <@${member.id}>! Head over to <#${this.rolesChannel.id}> if you want access to categories dedicated for specific languages. Use the :white_check_mark: emoticon below the languages you speak. You can get the Good user if you want to be notified about interesting offers and events.\n:flag_pl: Witaj <@${member.id}>! Przejdź na kanał <#${this.rolesChannel.id}> jeśli chcesz dostęp do kategorii dla konkretnych języków. Użyj emotikony :white_check_mark: pod językami, którymi mówisz. Możesz wziąć też rolę Good user, jeśli chcesz dostawać powiadomienia o ciekawych okazjach i wydarzeniach.`;
 	},
 	fixMemberRoles: async function(member, memberDoc) {
-		if (memberDoc.annoying <= Date.now()) memberDoc.annoying=null;
-		if (memberDoc.annoying) {
+		if (memberDoc.extraData.get("annoying") <= Date.now()) memberDoc.extraData.set("annoying", null);
+		if (memberDoc.extraData.get("annoying")) {
 			if (!memberDoc.rolesIds.includes(this.annoyingUserRole.id)) memberDoc.rolesIds.push(this.annoyingUserRole.id);
 			if (memberDoc.rolesIds.includes(this.userRole.id)) memberDoc.rolesIds=memberDoc.rolesIds.filter((roleId)=>(roleId != this.userRole.id));
 		} else {
@@ -51,18 +51,20 @@ module.exports={
 			let memberRolesIds=member.roles.cache.array().map((role)=>(role.id)).filter((roleId)=>(roleId != this.everyoneRole.id));
 			let toAdd=memberDoc.rolesIds.filter((roleId)=>(!memberRolesIds.includes(roleId)));
 			let toRemove=memberRolesIds.filter((roleId)=>(!memberDoc.rolesIds.includes(roleId)));
+			
 			toRemove.forEach((roleId)=>{
 				member.roles.remove(roleId).then(()=>{
 					console.log(`GoodGamers.exe: User ${member.user.username} lost ${this.roles.cache.get(roleId).name}.`);
 				}).catch((error)=>{
-					//console.trace(error);
+					console.log(member.user.username, toRemove);
+					console.trace(error);
 				});
 			});
 			toAdd.forEach((roleId)=>{
 				member.roles.add(roleId).then(()=>{
 					console.log(`GoodGamers.exe: User ${member.user.username} got ${this.roles.cache.get(roleId).name}.`);
 				}).catch((error)=>{
-					//console.trace(error);
+					console.trace(error);
 				});
 			});
 		}
@@ -157,15 +159,21 @@ module.exports={
 			});
 		});
 	},
-	calculatePermissionLvl: function(member) {
-		return member.roles.cache.reduce((sum, role)=>{
-			let roleInfo=this.rolesInfo[role.id];
+	calculatePermissionLvl: async function(member, memberDoc) {
+		if (!memberDoc) memberDoc=await getMemberDoc(member);
+		return memberDoc.rolesIds.reduce((sum, roleId)=>{
+			let roleInfo=this.rolesInfo[roleId];
 			return (Math.abs(roleInfo.permissionLvl) > sum)?(roleInfo.permissionLvl):(sum);
 		}, 0);
 	},
 	onReady: async function(guild) {
 		this.guild=guild;
 		this.members=guild.members;
+		// this.members.fetch().then((members)=>{
+		// 	members.forEach((member)=>{
+		// 		getMemberDoc(member);
+		// 	});
+		// });
 		this.roles=guild.roles;
 		this.channels=guild.channels;
 		// categories info
@@ -295,6 +303,9 @@ module.exports={
 					permissionLvl: -1,
 					hook: "annoyingUser",
 				},
+				"528708670293540864": { // DISBOARD
+					onlyFor: ["302050872383242240"],
+				},
 				"443476112614359050": { // Polski
 					type: "language",
 				},
@@ -365,7 +376,7 @@ module.exports={
 			this.rolesInfo=(await this.roles.fetch()).cache.array().reduce((rolesInfo, role)=>{
 				let roleInfo={
 					id: role.id,
-					isForBots: false,
+					isForBots: (customInfo[role.id] && (customInfo[role.id].type == "language" || customInfo[role.id].type == "personel"))?(false):(true),
 					isForHumans: true,
 					...customInfo[role.id],
 					role,
@@ -383,8 +394,8 @@ module.exports={
 		console.log("GoodGamers.exe: Ready.");
 		this.syncWithDatabase();
 		this.emergency();
-		// setInterval(()=>{this.syncWithDatabase();}, syncWithDatabaseInterval);
-		// setInterval(()=>{this.emergency();}, emergencyInterval);
+		setInterval(()=>{this.syncWithDatabase();}, syncWithDatabaseInterval);
+		setInterval(()=>{this.emergency();}, emergencyInterval);
 	},
 	onMessage: function(message) {
 		if (message.channel == this.rolesChannel) message.react("✅");
@@ -395,7 +406,7 @@ module.exports={
 	onGuildMemberRemove: async function(member) {
 		this.verificationMessage.reactions.cache.get("✅").users.remove(member.user.id);
 		getMemberDoc(member).then((memberDoc)=>{
-			let rolesIdsToRemove=[this.userRole.id, ...this.personelRoles.map((role)=>(role.id))];
+			let rolesIdsToRemove=[this.userRole.id, ...Object.values(this.personelRolesInfo).map((roleInfo)=>(role.id))];
 			memberDoc.rolesIds=memberDoc.rolesIds.filter((roleId)=>(!rolesIdsToRemove.includes(roleId)));
 			memberDoc.save();
 		}).catch((error)=>{console.trace(error);});
@@ -408,7 +419,13 @@ module.exports={
 	// },
 	onMessageReactionRemove: async function(reaction, user) {
 		if (user.bot) return;
-		if (reaction.message.channel == this.rolesChannel) {
+		if (reaction.message == this.verificationMessage) {
+			let member=await this.members.fetch(user.id);
+			let memberDoc=await getMemberDoc(member);
+			memberDoc.rolesIds=memberDoc.rolesIds.filter((roleId)=>(roleId != this.userRole.id));
+			this.fixMemberRoles(member, memberDoc);
+		}
+		else if (reaction.message.channel == this.rolesChannel) {
 			let oldRoleName=reaction.message.content.split(" ").slice(1).join(" ");
 			let oldRole=(await this.roles.fetch()).cache.find((role)=>(role.name == oldRoleName));
 			if (!oldRole) return console.trace(`GoodGamers.exe: Role with name ${oldRoleName} was not found.`);

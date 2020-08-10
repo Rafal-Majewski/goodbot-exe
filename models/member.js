@@ -7,7 +7,7 @@ const memberDbSchema=new Schema({
 	guildId: {type: String},
 	rolesIds: {type: Array, of: {type: String, unique: true}},
 	isBot: {type: Boolean},
-	extraData: {type: Map}, // used to store guild-specific member's data
+	extraData: {type: Map, default: {}}, // used to store guild-specific member's data
 });
 
 const MemberDb=mongoose.model("members", memberDbSchema);

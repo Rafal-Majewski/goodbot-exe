@@ -23,7 +23,7 @@ module.exports={
 		// get target member's doc
 		let targetMemberDoc=await getMemberDoc(targetMember);
 		let permissionLvl=data.permissionLvl;
-		let targetPermissionLvl=guildConfig.calculatePermissionLvl(targetMember);
+		let targetPermissionLvl=await guildConfig.calculatePermissionLvl(targetMember);
 		if (targetPermissionLvl <= 1) return message.reply(lang("commands.derank.cannotMore"));
 		if (permissionLvl <= targetPermissionLvl) return message.reply(lang("commands.derank.youCannot"));
 		let targetNewPermissionLvl=targetPermissionLvl-1;

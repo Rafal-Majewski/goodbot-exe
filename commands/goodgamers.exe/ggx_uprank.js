@@ -25,14 +25,14 @@ module.exports={
 		// get target member's doc
 		let targetMemberDoc=await getMemberDoc(targetMember);
 		let permissionLvl=data.permissionLvl;
-		let targetPermissionLvl=guildConfig.calculatePermissionLvl(targetMember);
+		let targetPermissionLvl=await guildConfig.calculatePermissionLvl(targetMember, targetMemberDoc);
 
 
 		if (!Object.values(data.guildConfig.rolesInfo).find((roleInfo)=>(roleInfo.permissionLvl == targetPermissionLvl+1))) return message.reply(lang("commands.uprank.cannotMore"));
-		if (permissionLvl <= targetPermissionLvl) return message.reply(lang("commands.derank.youCannot"));
+		if (permissionLvl <= targetPermissionLvl+1) return message.reply(lang("commands.uprank.youCannotMore"));
 		let targetNewPermissionLvl=targetPermissionLvl+1;
 		let targetNewPersonelRole=(Object.values(guildConfig.personelRolesInfo).find((roleInfo)=>(roleInfo.permissionLvl == targetNewPermissionLvl))).role;
-		let targetPersonelRole=(Object.values(guildConfig.personelRolesInfo).filter((roleInfo)).find((roleInfo)=>(roleInfo.permissionLvl == targetPermissionLvl)) || {}).role;
+		let targetPersonelRole=(Object.values(guildConfig.personelRolesInfo).find((roleInfo)=>(roleInfo.permissionLvl == targetPermissionLvl)) || {}).role;
 		if (targetPersonelRole) targetMemberDoc.rolesIds=targetMemberDoc.rolesIds.filter((roleId)=>(roleId != targetPersonelRole.id));
 		targetMemberDoc.rolesIds.push(targetNewPersonelRole.id);
 		guildConfig.fixMemberRoles(targetMember, targetMemberDoc).then(()=>{
